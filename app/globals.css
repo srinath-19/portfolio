@@ -1,20 +1,83 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ---- dark base ---- */
+  --background: #05060c;
+  --foreground: #ececf1;
+
+  /* ---- brand ---- */
   --color-pink: #f756a3;
-  --color-accent: #cdfb52;
+  --color-lime: #cdfb52;
   --color-red: #d4423b;
-  --color-hero-bg: #151a2f;
-  --color-hero-bg-2: #1f2547;
+  --color-hero-bg: #0a0c18;
+  --color-hero-bg-2: #12162c;
+
+  /* Surfaces layered above --background (cards, panels, alt sections) */
+  --surface-1: #0a0c14;
+  --surface-2: #10121d;
+  --surface-3: #171a28;
+
+  /* shadcn/ui tokens (used by components/ui/button.tsx + hero-section-1) */
+  --card: #0a0c14;
+  --card-foreground: #ececf1;
+  --popover: #0a0c14;
+  --popover-foreground: #ececf1;
+  --primary: #ececf1;
+  --primary-foreground: #05060c;
+  --secondary: #171a28;
+  --secondary-foreground: #ececf1;
+  --muted: #171a28;
+  --muted-foreground: #9a9aab;
+  --accent: #171a28;
+  --accent-foreground: #ececf1;
+  --destructive: #d4423b;
+  --destructive-foreground: #fafafa;
+  --border: #23263a;
+  --input: #23263a;
+  --ring: #f756a3;
+  --radius: 0.625rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: dark;
+    background: var(--background);
+  }
+
+  ::selection {
+    background: var(--color-pink);
+    color: #05060c;
+  }
 }
 
 body {
@@ -40,9 +103,17 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* ---------------------------------------------------------------
+   Ambient background: deep space with a warm ember core, so the
+   shader hero reads as the same world as the futuristic scan hero.
+   --------------------------------------------------------------- */
 .hero-bg {
-  background:
-    radial-gradient(ellipse at 50% 20%, #2a3160 0%, #151a2f 45%, #0b0f22 100%);
+  background: radial-gradient(
+    ellipse at 50% 25%,
+    #2a1430 0%,
+    #10101f 45%,
+    #05060c 100%
+  );
 }
 
 .star {
@@ -51,26 +122,74 @@ body {
   height: 2px;
   background: #fff;
   border-radius: 9999px;
-  opacity: 0.7;
+  opacity: 0.55;
+  box-shadow: 0 0 6px rgba(247, 86, 163, 0.6);
+  animation: star-twinkle 4s ease-in-out infinite;
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.15);
+  }
 }
 
 .cloud {
   position: absolute;
   background: var(--color-red);
   border-radius: 9999px;
-  filter: blur(0.3px);
+  filter: blur(18px);
+  opacity: 0.35;
+  mix-blend-mode: screen;
+}
+
+/* Fine scan-line grain, shared by the dark sections */
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.035) 0px,
+    rgba(255, 255, 255, 0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+/* Soft vignette used to blend one dark section into the next */
+.edge-fade-top {
+  background: linear-gradient(to bottom, #05060c, transparent);
+}
+
+.edge-fade-bottom {
+  background: linear-gradient(to top, #05060c, transparent);
 }
 
 .diagonal-band {
-  background: var(--color-pink);
+  background: linear-gradient(
+    90deg,
+    var(--color-pink) 0%,
+    var(--color-red) 55%,
+    var(--color-pink) 100%
+  );
   transform: rotate(-2.5deg);
   width: 110vw;
   margin-left: -5vw;
+  box-shadow: 0 0 60px rgba(247, 86, 163, 0.35);
 }
 
+/* Inverted for the dark page: light slab, dark type */
 .highlight-box {
-  background: #000;
-  color: #fff;
+  background: #f2f2f5;
+  color: #05060c;
   padding: 6px 10px;
   display: inline;
   box-decoration-break: clone;
@@ -87,5 +206,114 @@ body {
 @media (max-width: 768px) {
   .clan-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------
+   hero-futuristic.tsx
+   --------------------------------------------------------------- */
+@keyframes hero-glitch-in {
+  0% {
+    opacity: 0;
+    transform: translateY(0.35em) skewX(-12deg);
+    filter: blur(6px);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(0) skewX(3deg);
+    filter: blur(0);
+  }
+  70% {
+    opacity: 0.65;
+    transform: translateX(-0.04em);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0) skewX(0deg);
+    filter: blur(0);
+  }
+}
+
+@keyframes hero-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.2em);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.fade-in {
+  animation: hero-glitch-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  text-shadow: 0 0 24px rgba(212, 66, 59, 0.45);
+}
+
+.fade-in-subtitle {
+  animation: hero-rise-in 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.12em;
+}
+
+.explore-btn {
+  position: absolute;
+  bottom: 2.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  cursor: pointer;
+  animation: hero-rise-in 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: border-color 0.3s ease, background 0.3s ease, transform 0.3s ease;
+}
+
+.explore-btn:hover {
+  border-color: rgba(247, 86, 163, 0.7);
+  background: rgba(247, 86, 163, 0.12);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.explore-arrow {
+  display: inline-flex;
+  animation: explore-bob 1.8s ease-in-out infinite;
+}
+
+.arrow-svg {
+  display: block;
+  color: var(--color-lime);
+}
+
+@keyframes explore-bob {
+  0%,
+  100% {
+    transform: translateY(-2px);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .fade-in-subtitle,
+  .explore-btn,
+  .explore-arrow,
+  .star {
+    animation: none !important;
   }
 }

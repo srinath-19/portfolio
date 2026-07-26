@@ -16,6 +16,14 @@ npm run lint     # ESLint
 
 Always run `npm run build` after any change to confirm TypeScript passes — the project uses strict mode and React 19.
 
+## Browser Tooling (chrome-devtools MCP) — Explicit Request Only
+
+Do **not** use the `mcp__chrome-devtools__*` tools, launch the debug Chrome, or start the dev server for the purpose of viewing the page unless the user has explicitly asked for it in the current request.
+
+Explicit means the user asked in words like: "screenshot it", "open it in the browser", "check how it looks", "run the site", "verify it renders", "use chrome devtools", or invoking the `run-portfolio` skill. A request to build a feature, fix styling, or match a screenshot is **not** by itself permission to open the browser.
+
+Without an explicit request, verify work with `npm run build` (and reading the code) and stop there. Say what was and wasn't verified rather than opening a browser to close the gap — if visual confirmation seems genuinely necessary, offer it and let the user decide.
+
 ## Stack
 
 - **Next.js 16.2.3** — App Router, Turbopack dev, no Pages Router
@@ -34,6 +42,10 @@ app/
 components/ui/
   animated-shader-hero.tsx  ← WebGL2 hero with framer-motion overlays
   typewriter.tsx            ← framer-motion typewriter with spring cursor
+  hero-section-1.tsx        ← HeroHeader (site nav, used by page.tsx) + reference HeroSection
+  button.tsx                ← shadcn/ui button (cva variants, radix Slot)
+  animated-group.tsx        ← framer-motion stagger wrapper
+  text-effect.tsx           ← framer-motion per-word/char text animation
 lib/
   utils.ts          ← cn() helper (clsx + tailwind-merge)
 ```
@@ -45,10 +57,12 @@ All color/style tokens live in `:root` and utility classes in `globals.css` — 
 | Token | Value | Use |
 |---|---|---|
 | `--color-pink` | `#f756a3` | accent / secondary |
-| `--color-accent` | `#cdfb52` | lime / primary CTA |
+| `--color-lime` | `#cdfb52` | lime / primary CTA (renamed from `--color-accent`) |
 | `--color-red` | `#d4423b` | clan section, decorative |
 | `--color-hero-bg` | `#151a2f` | fallback hero bg |
 | `--color-hero-bg-2` | `#1f2547` | fallback hero bg, secondary |
+
+A full shadcn/ui token set (`--background`, `--muted`, `--primary`, `--border`, `--ring`, …) also lives in `:root` and is mapped through `@theme inline` so shadcn components work. `--color-accent` now belongs to shadcn — use `--color-lime` for the brand lime. Tailwind v4 defaults `border` to `currentColor`, so `@layer base` sets `border-color: var(--border)` globally.
 
 Key utility classes: `.hero-title`, `.section-title` (Impact font + skew), `.highlight-box` (black bg inline text), `.diagonal-band` (pink rotated strip), `.clan-grid` (2-col → 1-col responsive).
 

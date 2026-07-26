@@ -72,6 +72,11 @@ float clouds(vec2 p) {
   }
   return t;
 }
+// palette tuned to sit next to the crimson scan hero:
+// crimson core -> magenta mid -> cold lime rim
+#define EMBER vec3(1.00,.26,.22)
+#define MAGENTA vec3(.97,.34,.64)
+#define LIME vec3(.80,.98,.32)
 void main(void) {
   vec2 uv=(FC-.5*R)/MN,st=uv*vec2(2,1);
   vec3 col=vec3(0);
@@ -92,10 +97,13 @@ void main(void) {
     // squish along tail axis -> comet streak
     vec2 streak=vec2(rp.x*.22, rp.y);
     float d=length(streak);
-    col+=.0016/d*(cos(sin(i)*vec3(1,2,3))+1.);
+    // ramp each comet between ember and magenta instead of full-spectrum
+    vec3 tint=mix(EMBER,MAGENTA,sin(i*.9)*.5+.5);
+    col+=.0015/d*tint*1.6;
     float b=noise(i+p+bg*1.731);
-    col+=.0022*b/length(max(p,vec2(b*p.x*.02,p.y)));
-    col=mix(col,vec3(bg*.12,bg*.08,bg*.18),d*.35);
+    col+=.0018*b*mix(tint,LIME,.12)/length(max(p,vec2(b*p.x*.02,p.y)));
+    // deep plum haze rather than the old blue-grey
+    col=mix(col,vec3(bg*.13,bg*.05,bg*.12),d*.4);
   }
   // extra wide-roaming comets layered on top
   for (float j=0.; j<6.; j++) {
@@ -110,8 +118,13 @@ void main(void) {
     p=rot*p;
     vec2 streak=vec2(p.x*(.1+.025*j), p.y);
     float d=length(streak);
-    col+=.0011/d*(cos(sin(j*1.7)*vec3(1,2,3))+1.);
+    // every third streak goes lime so the accent colour still appears
+    vec3 tint=mod(j,3.)<1. ? LIME : mix(EMBER,MAGENTA,fract(j*.37));
+    col+=.0012/d*tint*1.5;
   }
+  // settle the whole frame down onto near-black so page sections blend in
+  col=max(col-.012,vec3(0));
+  col*=.92;
   O=vec4(col,1);
 }`;
 
@@ -403,6 +416,12 @@ const Hero: React.FC<HeroProps> = ({
         style={{ background: "black" }}
       />
 
+      {/* blend the shader down into the page background */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 z-[5] edge-fade-bottom"
+      />
+
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-white">
         {trustBadge && (
           <div className="mb-8 animate-fade-in-down">
@@ -416,7 +435,7 @@ const Hero: React.FC<HeroProps> = ({
               {trustBadge.icons && (
                 <div className="flex gap-1">
                   {trustBadge.icons.map((icon, index) => (
-                    <span key={index} style={{ color: "var(--color-accent)" }}>
+                    <span key={index} style={{ color: "var(--color-lime)" }}>
                       {icon}
                     </span>
                   ))}
@@ -458,7 +477,7 @@ const Hero: React.FC<HeroProps> = ({
                   waitTime={1800}
                   deleteSpeed={45}
                   cursorChar="_"
-                  cursorClassName="ml-3 inline-block text-[color:var(--color-accent)]"
+                  cursorClassName="ml-3 inline-block text-[color:var(--color-lime)]"
                 />
               ) : (
                 headline.line2
@@ -466,7 +485,7 @@ const Hero: React.FC<HeroProps> = ({
               <motion.span
                 aria-hidden
                 className="absolute -top-6 -left-4 text-2xl md:text-3xl"
-                style={{ color: "var(--color-accent)" }}
+                style={{ color: "var(--color-lime)" }}
                 animate={{ rotate: [0, 20, -20, 0], scale: [1, 1.3, 1] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
               >
@@ -497,7 +516,7 @@ const Hero: React.FC<HeroProps> = ({
                   onClick={buttons.primary.onClick}
                   className="px-8 py-3 text-black rounded-full font-black text-sm tracking-[0.15em] uppercase transition-all duration-300 hover:scale-105 hover:shadow-xl"
                   style={{
-                    background: "var(--color-accent)",
+                    background: "var(--color-lime)",
                     boxShadow: "0 0 30px rgba(205, 251, 82, 0.25)",
                   }}
                 >
