@@ -2,14 +2,22 @@
 
 import dynamic from "next/dynamic";
 import Hero from "@/components/ui/animated-shader-hero";
+import { ChatPanelPlaceholder } from "@/components/ui/chat-panel-placeholder";
+import { ExperienceSwap } from "@/components/ui/experience-swap";
 import { HeroHeader } from "@/components/ui/hero-section-1";
+import { profile } from "@/lib/profile";
 
-// WebGPU renderer + three/webgpu must never touch the server render.
-const HeroFuturistic = dynamic(
-  () => import("@/components/ui/hero-futuristic").then((m) => m.HeroFuturistic),
+// WebGPU renderer + three/webgpu must never touch the server render. Only the
+// canvas is deferred: `HeroFuturistic` is now chrome-only and the experience
+// copy stays server-rendered, which matters for a portfolio's job history.
+const ExperienceBackdrop = dynamic(
+  () =>
+    import("@/components/ui/experience-backdrop").then(
+      (m) => m.ExperienceBackdrop,
+    ),
   {
     ssr: false,
-    loading: () => <div className="h-svh w-full bg-black" />,
+    loading: () => <div className="absolute inset-0 z-0 bg-black" />,
   },
 );
 
@@ -17,28 +25,27 @@ const scrollTo = (id: string) =>
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
 export default function Home() {
+  const [, whatIBuild, whatExcitesMe] = profile.aboutFull;
+
+  // `overflow-x-clip`, not `overflow-x-hidden`: `hidden` computes `overflow-y`
+  // to `auto`, which makes this element a scroll container and breaks the
+  // sticky canvas in the experience section. `clip` clips identically without
+  // establishing one.
   return (
-    <div className="w-full overflow-x-hidden select-none bg-[var(--background)] text-[var(--foreground)]">
+    <div className="w-full overflow-x-clip select-none bg-[var(--background)] text-[var(--foreground)]">
       {/* ================= HERO ================= */}
       <div className="relative">
         {/* Top Navigation overlay */}
         <HeroHeader />
 
         <Hero
-          trustBadge={{
-            text: "Designer · AI Developer · Creator",
-            icons: ["✦"],
-          }}
-          headline={{
-            line1: "Your Name",
-            line2: [
-              "Builds The Web",
-              "Ships Bold Ideas",
-              "Crafts Playful UX",
-              "Designs With Joy",
-            ],
-          }}
-          subtitle="Crafting digital experiences that blend bold visual storytelling with precise engineering. Selected works in product design, creative development, and experimental builds."
+          eyebrow={{ role: profile.title, status: "Open to work" }}
+          name={profile.name}
+          specialties={profile.specialties}
+          bio={profile.about}
+          location={{ place: profile.location, note: profile.locationNote }}
+          socials={profile.socials}
+          aside={<ChatPanelPlaceholder />}
           buttons={{
             primary: {
               text: "View Work",
@@ -53,27 +60,35 @@ export default function Home() {
       </div>
 
       {/* ================= EDITORIAL TEXT BLOCK ================= */}
-      <section className="relative bg-[var(--background)] py-28 px-6 flex justify-center scanlines">
-        <div className="max-w-xl text-center text-[15px] leading-[2] tracking-wide">
-          <p>
-            <span className="highlight-box">
-              I design and build digital experiences that blend bold
-            </span>{" "}
-            <span className="highlight-box">
-              visual storytelling with precise engineering. Every project
-            </span>{" "}
-            <span className="highlight-box">
-              starts with curiosity and ends with something worth shipping.
-            </span>{" "}
-            <span className="highlight-box">
-              From brand identity to interactive web, this is the work.
-            </span>
+      {/* Paragraphs 2 and 3 of the About in mydata/contact.md, side by side:
+          the slab statement on the left, the quieter coda on the right. They
+          used to stack, which left a screen-and-a-half of empty black between
+          the hero and the band. On mobile they fall back to stacked. */}
+      <section className="relative bg-[var(--background)] py-20 px-6 scanlines">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+          <p className="text-[15px] tracking-wide">
+            <span className="highlight-box">{whatIBuild}</span>
           </p>
+
+          {/* The rule turns with the layout: a hairline above the coda when
+              stacked, a full-height divider beside it once side by side. */}
+          <div className="relative lg:pl-16">
+            <span
+              aria-hidden
+              className="block h-px w-16 bg-gradient-to-r from-[var(--color-pink)] to-transparent lg:absolute lg:left-0 lg:top-0 lg:h-full lg:w-px lg:bg-gradient-to-b lg:from-transparent lg:via-[var(--color-pink)]/50 lg:to-transparent"
+            />
+            <p className="mt-6 text-[15px] leading-[1.9] font-light tracking-wide text-white/60 lg:mt-0">
+              {whatExcitesMe}
+            </p>
+          </div>
         </div>
       </section>
 
       {/* ================= DIAGONAL BAND ================= */}
-      <section className="relative bg-[var(--background)] py-20 overflow-hidden">
+      {/* Pure divider. The blurb that used to sit under it ("a collection of
+          selected works spanning product design…") was invented filler, not
+          anything from mydata/, so it is gone rather than rewritten. */}
+      <section className="relative bg-[var(--background)] py-12 overflow-hidden">
         <div className="diagonal-band h-16 flex items-center overflow-hidden whitespace-nowrap">
           <div className="flex gap-10 px-6">
             {Array.from({ length: 20 }).map((_, i) => (
@@ -86,31 +101,39 @@ export default function Home() {
             ))}
           </div>
         </div>
-
-        <div className="mt-16 max-w-md mx-auto text-center text-[12px] leading-[1.9] text-white/45 px-6">
-          A collection of selected works spanning product design, creative
-          development, and experimental builds. Each piece reflects a
-          specific moment, constraint, and collaboration.
-        </div>
       </section>
 
-      {/* ================= DEPTH-SCAN INTERLUDE ================= */}
-      <section id="work" className="relative w-full bg-black">
-        <HeroFuturistic
-          title="Build Your Dreams"
-          subtitle="Design, code, and machine learning — welded together."
-          tint={[10, 1.2, 5]}
-          scanColor={[1, 0.34, 0.64]}
-          exploreLabel="Scroll to explore"
-          onExplore={() => scrollTo("projects")}
+      {/* ================= EXPERIENCE ================= */}
+      {/* The depth-scan visual is this section's background rather than the
+          separate full-screen interlude it used to be: one WebGPU canvas,
+          sticky, running the whole height while the glass cards scroll over
+          it. The old "Build Your Dreams" title screen was cut with it —
+          `HeroFuturistic` still exists as a standalone component but nothing
+          renders it now.
+
+          `select-text` opts out of the root's `select-none` — this is the one
+          place on the page where the copy is worth copying. `isolate` keeps
+          the canvas's stacking context from leaking into the rest of the page. */}
+      <section id="work" className="relative isolate bg-black select-text">
+        <ExperienceBackdrop />
+
+        <div className="relative z-10 mx-auto max-w-6xl px-6 pt-32 pb-32 lg:pt-40">
+          <p className="text-center text-white/55 text-xs tracking-[0.2em] uppercase mb-4">
+            Experience
+          </p>
+          <h2 className="section-title text-center text-[clamp(1.75rem,4vw,3rem)] uppercase text-white mb-14 drop-shadow-[0_2px_16px_rgba(0,0,0,0.9)]">
+            Where I&apos;ve Built
+          </h2>
+          <ExperienceSwap />
+        </div>
+
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-28 z-20 edge-fade-top"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-28 z-10 edge-fade-top"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-28 z-10 edge-fade-bottom"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-28 z-20 edge-fade-bottom"
         />
       </section>
 
@@ -197,9 +220,8 @@ export default function Home() {
           Let&apos;s Build Something
         </h2>
         <a
-          href="mailto:hello@example.com"
-          className="px-8 py-2 font-black tracking-widest text-sm border-2 border-[var(--color-lime)] text-[var(--color-lime)] transition-colors hover:bg-[var(--color-lime)] hover:text-black"
-          style={{ fontFamily: "Impact, sans-serif" }}
+          href={profile.socials[0].href}
+          className="section-title px-8 py-2 tracking-widest text-sm border-2 border-[var(--color-lime)] text-[var(--color-lime)] transition-colors hover:bg-[var(--color-lime)] hover:text-black"
         >
           Say Hello
         </a>
