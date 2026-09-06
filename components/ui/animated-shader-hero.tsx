@@ -1,19 +1,30 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Typewriter } from "@/components/ui/typewriter";
+import { LocationIcon } from "@/components/ui/social-icons";
+import { SocialRail } from "@/components/ui/social-rail";
+import type { SocialLink } from "@/lib/profile";
 
 interface HeroProps {
-  trustBadge?: {
-    text: string;
-    icons?: string[];
+  /** Status dot + role, with an optional availability note after a hairline. */
+  eyebrow?: {
+    role: string;
+    status?: string;
   };
-  headline: {
-    line1: string;
-    line2: string | string[];
+  /** Rendered as the display headline, one line per word. */
+  name: string;
+  /** Inline rail under the name; one item highlights at a time. */
+  specialties?: readonly string[];
+  bio: string;
+  location?: {
+    place: string;
+    note?: string;
   };
-  subtitle: string;
+  /** Contact links rendered as the interactive chip row. */
+  socials?: readonly SocialLink[];
+  /** Right-hand column of the hero. Reserved for the "ask me anything" chatbot. */
+  aside?: React.ReactNode;
   buttons?: {
     primary?: {
       text: string;
@@ -382,17 +393,37 @@ const useShaderBackground = () => {
   return canvasRef;
 };
 
+const SPEC_DWELL_MS = 1900;
+
 const Hero: React.FC<HeroProps> = ({
-  trustBadge,
-  headline,
-  subtitle,
+  eyebrow,
+  name,
+  specialties,
+  bio,
+  location,
+  socials,
+  aside,
   buttons,
   className = "",
 }) => {
   const canvasRef = useShaderBackground();
+  const nameLines = useMemo(() => name.split(/\s+/).filter(Boolean), [name]);
+
+  // Walks the highlight along the specialty rail, echoing the shader's sweep.
+  const [activeSpec, setActiveSpec] = useState(0);
+  const specCount = specialties?.length ?? 0;
+
+  useEffect(() => {
+    if (specCount < 2) return;
+    const id = setInterval(
+      () => setActiveSpec((i) => (i + 1) % specCount),
+      SPEC_DWELL_MS,
+    );
+    return () => clearInterval(id);
+  }, [specCount]);
 
   return (
-    <div className={`relative w-full h-screen overflow-hidden bg-black ${className}`}>
+    <div className={`relative w-full min-h-screen overflow-hidden bg-black ${className}`}>
       <style jsx>{`
         @keyframes fade-in-down {
           from { opacity: 0; transform: translateY(-20px); }
@@ -422,138 +453,152 @@ const Hero: React.FC<HeroProps> = ({
         className="pointer-events-none absolute inset-x-0 bottom-0 h-40 z-[5] edge-fade-bottom"
       />
 
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-white">
-        {trustBadge && (
-          <div className="mb-8 animate-fade-in-down">
-            <div
-              className="flex items-center gap-2 px-6 py-2.5 backdrop-blur-md border rounded-full text-xs tracking-[0.2em] uppercase"
-              style={{
-                background: "rgba(247, 86, 163, 0.08)",
-                borderColor: "rgba(247, 86, 163, 0.35)",
-              }}
-            >
-              {trustBadge.icons && (
-                <div className="flex gap-1">
-                  {trustBadge.icons.map((icon, index) => (
-                    <span key={index} style={{ color: "var(--color-lime)" }}>
-                      {icon}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <span className="text-white/90">{trustBadge.text}</span>
-            </div>
-          </div>
-        )}
+      <div className="relative z-10 flex min-h-screen items-center text-white">
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-14 px-6 pt-24 pb-28 md:px-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:gap-16">
+          {/* ---------- LEFT: identity ---------- */}
+          <div className="relative">
+            {eyebrow && (
+              <div className="animate-fade-in-down hero-eyebrow mb-6">
+                <span className="status-dot" aria-hidden />
+                <span>{eyebrow.role}</span>
+                {eyebrow.status && (
+                  <>
+                    <span className="hero-hairline" aria-hidden />
+                    <span className="font-normal text-white/45">{eyebrow.status}</span>
+                  </>
+                )}
+              </div>
+            )}
 
-        <div className="text-center space-y-4 max-w-5xl mx-auto px-4">
-          <div className="space-y-1">
-            <h1
-              className="text-5xl md:text-7xl lg:text-8xl font-black uppercase bg-clip-text text-transparent animate-fade-in-up animation-delay-200"
-              style={{
-                fontFamily: "Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif",
-                letterSpacing: "0.02em",
-                transform: "skewX(-4deg)",
-                backgroundImage:
-                  "linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #f756a3 100%)",
-              }}
-            >
-              {headline.line1}
-            </h1>
-            <h1
-              className="relative text-5xl md:text-7xl lg:text-8xl font-black uppercase bg-clip-text text-transparent animate-fade-in-up animation-delay-400"
-              style={{
-                fontFamily: "Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif",
-                letterSpacing: "0.02em",
-                transform: "skewX(-4deg)",
-                backgroundImage:
-                  "linear-gradient(180deg, #f756a3 0%, #ffffff 55%, #cdfb52 100%)",
-              }}
-            >
-              {Array.isArray(headline.line2) ? (
-                <Typewriter
-                  text={headline.line2}
-                  speed={85}
-                  waitTime={1800}
-                  deleteSpeed={45}
-                  cursorChar="_"
-                  cursorClassName="ml-3 inline-block text-[color:var(--color-lime)]"
-                />
-              ) : (
-                headline.line2
-              )}
+            <div className="relative">
               <motion.span
                 aria-hidden
-                className="absolute -top-6 -left-4 text-2xl md:text-3xl"
+                className="pointer-events-none absolute -top-6 -left-4 text-2xl md:text-3xl"
                 style={{ color: "var(--color-lime)" }}
                 animate={{ rotate: [0, 20, -20, 0], scale: [1, 1.3, 1] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
               >
-                ✦
+                &#10022;
               </motion.span>
+
+              <h1 className="hero-name">
+                {nameLines.map((line, i) => (
+                  <span
+                    key={line}
+                    className="hero-name-line"
+                    style={{
+                      animationDelay: `${0.15 + i * 0.14}s`,
+                      backgroundSize: `100% ${nameLines.length * 100}%`,
+                      backgroundPositionY:
+                        nameLines.length > 1
+                          ? `${(i / (nameLines.length - 1)) * 100}%`
+                          : "50%",
+                    }}
+                  >
+                    {line}
+                  </span>
+                ))}
+              </h1>
+
               <motion.span
                 aria-hidden
-                className="absolute -bottom-2 -right-6 text-xl md:text-2xl"
-                style={{ color: "#f756a3" }}
+                className="pointer-events-none absolute -right-1 -bottom-3 text-xl md:text-2xl"
+                style={{ color: "var(--color-pink)" }}
                 animate={{ rotate: [0, -30, 30, 0], scale: [1, 1.4, 1] }}
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
               >
-                ✧
+                &#10023;
               </motion.span>
-            </h1>
-          </div>
-
-          <div className="max-w-2xl mx-auto animate-fade-in-up animation-delay-600 pt-4">
-            <p className="text-base md:text-lg text-white/75 font-light leading-relaxed tracking-wide">
-              {subtitle}
-            </p>
-          </div>
-
-          {buttons && (
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10 animate-fade-in-up animation-delay-800">
-              {buttons.primary && (
-                <button
-                  onClick={buttons.primary.onClick}
-                  className="px-8 py-3 text-black rounded-full font-black text-sm tracking-[0.15em] uppercase transition-all duration-300 hover:scale-105 hover:shadow-xl"
-                  style={{
-                    background: "var(--color-lime)",
-                    boxShadow: "0 0 30px rgba(205, 251, 82, 0.25)",
-                  }}
-                >
-                  {buttons.primary.text}
-                </button>
-              )}
-              {buttons.secondary && (
-                <button
-                  onClick={buttons.secondary.onClick}
-                  className="px-8 py-3 rounded-full font-black text-sm tracking-[0.15em] uppercase text-white transition-all duration-300 hover:scale-105 backdrop-blur-sm border"
-                  style={{
-                    background: "rgba(247, 86, 163, 0.12)",
-                    borderColor: "rgba(247, 86, 163, 0.5)",
-                  }}
-                >
-                  {buttons.secondary.text}
-                </button>
-              )}
             </div>
-          )}
-        </div>
 
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/70"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2, duration: 0.6 }}
-        >
-          <span className="text-[10px] tracking-[0.3em] uppercase">Scroll</span>
-          <motion.div
-            className="w-[2px] h-10 rounded-full"
-            style={{ background: "linear-gradient(to bottom, #cdfb52, transparent)" }}
-            animate={{ scaleY: [0.3, 1, 0.3], opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </motion.div>
+            {specialties && specialties.length > 0 && (
+              <ul className="animate-fade-in-up animation-delay-400 spec-rail mt-6">
+                {specialties.map((item, i) => (
+                  <li
+                    key={item}
+                    className={`spec-item${i === activeSpec ? " is-active" : ""}`}
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="animate-fade-in-up animation-delay-600 hero-rule mt-7 max-w-sm" />
+
+            <p className="animate-fade-in-up animation-delay-600 mt-6 max-w-xl text-[15px] leading-[1.75] font-light tracking-wide text-white/72 md:text-base">
+              {bio}
+            </p>
+
+            {location && (
+              <div className="animate-fade-in-up animation-delay-600 hero-meta mt-5">
+                <LocationIcon
+                  className="h-3.5 w-3.5"
+                  style={{ color: "var(--color-pink)" }}
+                />
+                <span>{location.place}</span>
+                {location.note && (
+                  <>
+                    <span className="hero-meta-sep" aria-hidden>
+                      &middot;
+                    </span>
+                    <span>{location.note}</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            {socials && socials.length > 0 && <SocialRail links={socials} className="mt-7" />}
+
+            {buttons && (
+              <div className="animate-fade-in-up animation-delay-800 mt-8 flex flex-col gap-4 sm:flex-row">
+                {buttons.primary && (
+                  <button
+                    onClick={buttons.primary.onClick}
+                    className="rounded-full px-8 py-3 text-sm font-black tracking-[0.15em] text-black uppercase transition-all duration-300 hover:scale-105 hover:shadow-xl"
+                    style={{
+                      background: "var(--color-lime)",
+                      boxShadow: "0 0 30px rgba(205, 251, 82, 0.25)",
+                    }}
+                  >
+                    {buttons.primary.text}
+                  </button>
+                )}
+                {buttons.secondary && (
+                  <button
+                    onClick={buttons.secondary.onClick}
+                    className="rounded-full border px-8 py-3 text-sm font-black tracking-[0.15em] text-white uppercase backdrop-blur-sm transition-all duration-300 hover:scale-105"
+                    style={{
+                      background: "rgba(247, 86, 163, 0.12)",
+                      borderColor: "rgba(247, 86, 163, 0.5)",
+                    }}
+                  >
+                    {buttons.secondary.text}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ---------- RIGHT: reserved for the chatbot ---------- */}
+          {aside && <div className="hidden lg:block">{aside}</div>}
+        </div>
       </div>
+
+      <motion.div
+        className="absolute bottom-8 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2 text-white/70"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.2, duration: 0.6 }}
+      >
+        <span className="text-[10px] tracking-[0.3em] uppercase">Scroll</span>
+        <motion.div
+          className="h-10 w-[2px] rounded-full"
+          style={{ background: "linear-gradient(to bottom, #cdfb52, transparent)" }}
+          animate={{ scaleY: [0.3, 1, 0.3], opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </motion.div>
     </div>
   );
 };

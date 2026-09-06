@@ -6,6 +6,7 @@ import { ArrowRight, ChevronRight, Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AnimatedGroup } from '@/components/ui/animated-group'
 import { cn } from '@/lib/utils'
+import { profile } from '@/lib/profile'
 
 const transitionVariants = {
     item: {
@@ -257,7 +258,7 @@ const Logo = ({ className }: { className?: string }) => {
                 'section-title text-sm uppercase tracking-widest text-white',
                 className,
             )}>
-            ◆ Portfolio ◆
+            ◆ {profile.name} ◆
         </span>
     )
 }
