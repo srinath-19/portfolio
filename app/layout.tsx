@@ -45,7 +45,7 @@ export default function RootLayout({
       lang="en"
       className={`h-full antialiased ${display.variable} ${sans.variable} ${mono.variable}`}
     >
-      <body className="min-h-full flex flex-col bg-white">{children}</body>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

@@ -91,7 +91,11 @@
 }
 
 body {
-  background: var(--background);
+  /* Deliberately transparent: `html` above carries `--background` as the base
+     colour, and the site-wide wave canvas in `page.tsx` is a fixed `-z-10`
+     layer. Negative z-index paints *below* in-flow block backgrounds, so any
+     background on `body` covers the canvas completely. */
+  background: transparent;
   color: var(--foreground);
   font-family: var(--font-stack-sans);
   -webkit-font-smoothing: antialiased;
@@ -265,17 +269,6 @@ body {
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-panel {
     background: rgba(12, 14, 24, 0.86);
-  }
-}
-
-.clan-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-@media (max-width: 768px) {
-  .clan-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -686,5 +679,682 @@ body {
   .spec-item,
   .glass-panel {
     transition: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------
+   Card orbit (Featured Work) — a continuously turning ellipse of
+   playing cards. `components/ui/card-orbit.tsx` owns the geometry and
+   writes x / y / width / height / z-index onto `.card-orbit-card` every
+   frame via GSAP; everything below is the look, which never animates
+   from JS.
+   --------------------------------------------------------------- */
+.card-orbit-track {
+  /* Tall on purpose. The ring's vertical radius has to clear the card height
+     or every card overlaps its neighbours down both sides of the ellipse and
+     the ring stops reading as a ring. */
+  height: clamp(600px, 92vh, 880px);
+  /* `clip`, not `hidden`: `hidden` would make this a scroll container and
+     let a stray wheel event scroll the ring inside its own box. */
+  overflow: clip;
+}
+
+.card-orbit-card {
+  /* Perspective belongs to the card, not the rotating inner — a 3D
+     transform cannot supply its own vanishing point. */
+  perspective: 900px;
+  cursor: pointer;
+}
+
+.card-orbit-card:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
+
+.card-orbit-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.card-orbit-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  /* Without this the mirrored reverse of the card art shows through the
+     back face, which on real playing-card art reads as a rendering bug. */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card-orbit-face--back {
+  transform: rotateY(180deg);
+}
+
+/* Brighter and thinner-blurred than `.glass-idle`: these panels are small,
+   they overlap each other as the ring turns, and the blur is mostly
+   refracting the card behind rather than a flat background. */
+.glass-card {
+  --glass-tint: rgba(255, 255, 255, 0.06);
+  --glass-edge: rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  backdrop-filter: blur(10px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 18px 40px -18px rgba(0, 0, 0, 0.95);
+}
+
+/* Specular sweep across the glass, so the frame reads as a lit surface
+   rather than a flat translucent fill. */
+.card-orbit-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.06) 34%,
+    transparent 55%
+  );
+}
+
+.card-orbit-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* `contain`, not `cover`: the source PNGs are whole cards with transparent
+     rounded corners, so cropping them would cut the printed border. The inset
+     leaves a sliver of glass showing as a frame. */
+  object-fit: contain;
+  padding: 5%;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+
+.card-orbit-back {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4em;
+  padding: 10% 9%;
+  text-align: center;
+}
+
+.card-orbit-meta {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-pink);
+}
+
+.card-orbit-title {
+  font-size: 15px;
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.card-orbit-subtitle {
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* ---------------------------------------------------------------
+   Project modal — the detail panel a click on an orbit card opens.
+   `components/ui/project-modal.tsx` owns the behaviour; nothing here
+   is written from JS except the flight transform on
+   `.project-modal-art-flight`.
+   --------------------------------------------------------------- */
+.project-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  background: rgba(5, 6, 12, 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.project-modal-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  width: 100%;
+  max-width: 46rem;
+  max-height: 85vh;
+  padding: clamp(1.4rem, 3vw, 2rem);
+  /* Deliberately not clipped. The card flies in from its slot out in the
+     ring, which is well outside this box for most of the animation — an
+     `overflow: hidden` here would cut the flight down to the last few
+     pixels. The rounded corners live on the surface layer below instead. */
+  overflow: visible;
+}
+
+.project-modal-panel:focus {
+  outline: none;
+}
+
+/* The glass, on a layer that never animates. See `.glass-panel`. */
+.project-modal-surface {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  pointer-events: none;
+}
+
+.glass-modal {
+  --glass-tint: rgba(255, 255, 255, 0.05);
+  --glass-edge: rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  backdrop-filter: blur(26px) saturate(150%);
+}
+
+/* The rank printed in opposite corners, the way a real card indexes itself. */
+.project-modal-rank {
+  position: absolute;
+  font-family: var(--font-stack-display);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--color-pink) 55%, transparent);
+  pointer-events: none;
+}
+
+.project-modal-rank--tl {
+  top: 0.85rem;
+  left: 1rem;
+}
+
+.project-modal-rank--br {
+  bottom: 0.85rem;
+  right: 1rem;
+  transform: rotate(180deg);
+}
+
+.project-modal-close {
+  position: absolute;
+  background: transparent;
+  top: 0.5rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  font-size: 22px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.project-modal-close:hover,
+.project-modal-close:focus-visible {
+  color: #fff;
+}
+
+.project-modal-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 180px) 1fr;
+  gap: clamp(1.1rem, 3vw, 1.9rem);
+  /* `min-height: 0` so the content column can actually scroll instead of
+     growing the grid past the panel's max-height. */
+  min-height: 0;
+  flex: 1;
+}
+
+.project-modal-art {
+  position: relative;
+  align-self: start;
+  aspect-ratio: 160 / 227;
+}
+
+/* The element the FLIP transform is written to. It fills the slot, so the
+   slot's own box is what the open animation measures against. */
+.project-modal-art-flight {
+  position: absolute;
+  inset: 0;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.project-modal-card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* `contain`, matching `.card-orbit-art`: the source art is a whole card
+     with transparent rounded corners, so cropping cuts the printed border. */
+  object-fit: contain;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.7));
+}
+
+.project-modal-content {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.project-modal-meta {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-pink);
+}
+
+.project-modal-title {
+  margin-top: 0.35rem;
+  font-size: clamp(1.6rem, 4vw, 2.3rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.project-modal-tagline {
+  margin-top: 0.4rem;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.project-modal-summary {
+  margin-top: 1rem;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.project-modal-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1.1rem;
+}
+
+.project-modal-chip {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+
+.project-modal-highlights {
+  margin-top: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.project-modal-highlights li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.project-modal-highlights li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 5px;
+  height: 5px;
+  background: var(--color-pink);
+  /* A small rotated square rather than a disc — it echoes the ✦ marks in the
+     diagonal band without repeating the glyph. */
+  transform: rotate(45deg);
+}
+
+.project-modal-footer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Same treatment as the "Say Hello" CTA at the foot of the page. */
+.project-modal-repo {
+  font-family: var(--font-stack-display);
+  padding: 0.4rem 1.15rem;
+  border: 2px solid var(--color-lime);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-lime);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.project-modal-repo:hover,
+.project-modal-repo:focus-visible {
+  background: var(--color-lime);
+  color: #000;
+}
+
+.project-modal-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.project-modal-arrow {
+  background: transparent;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  font-size: 18px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.project-modal-arrow:hover,
+.project-modal-arrow:focus-visible {
+  border-color: var(--color-pink);
+  background: color-mix(in srgb, var(--color-pink) 14%, transparent);
+  color: #fff;
+}
+
+.project-modal-count {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Two columns all the way down, just a much narrower card. Stacking the art
+   above the copy pushes the GitHub link and the pager below the fold on a
+   short phone, which are the two controls the panel exists to offer. */
+@media (max-width: 720px) {
+  .project-modal-body {
+    grid-template-columns: 104px 1fr;
+  }
+
+  .project-modal-summary {
+    font-size: 12.5px;
+  }
+
+  .project-modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .project-modal-repo {
+    text-align: center;
+  }
+
+  .project-modal-pager {
+    justify-content: center;
+  }
+}
+
+/* ---------------------------------------------------------------
+   Skill clusters (skill-clusters.tsx)
+
+   Every position in the field is written as an inline style by the
+   component; what lives here is only appearance and state. The marks rest
+   greyed out and bloom into their brand colour on hover, which is also how
+   the multi-colour marks (Chroma, Google Cloud) stay consistent with the
+   monochrome ones without special-casing them.
+   --------------------------------------------------------------- */
+/* The field is full-bleed, so this keeps the outermost marks off the viewport
+   edge. The ResizeObserver measures the content box, so the layout already
+   accounts for it. */
+.skill-field-wrap {
+  position: relative;
+  width: 100%;
+  padding: 0 clamp(8px, 2vw, 32px);
+}
+
+/* Transparent until the component has measured itself — see `data-ready`. */
+.skill-field {
+  position: relative;
+  width: 100%;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.skill-field[data-ready] {
+  opacity: 1;
+}
+
+.skill-cluster {
+  position: absolute;
+  /* The component writes `left`/`top` as the cluster's CENTRE, so this has to
+     pull the box back by half its size. Without it every cluster sits a full
+     radius down and to the right of where the layout put it — which still
+     looks plausible on a wide screen and only becomes obvious when a cluster
+     runs off the side of a phone. */
+  transform: translate(-50%, -50%);
+  /* border-radius clips hit-testing too, so the pointer only counts as
+     "inside a cluster" within the circle, never in a square corner that
+     reaches into a neighbour. */
+  border-radius: 50%;
+  outline: none;
+  opacity: 1;
+  transition: opacity 0.45s ease;
+}
+
+/* One cluster active dims the rest. Driven by a data attribute rather than
+   :hover so focus and touch get the same treatment. */
+.skill-field[data-dimmed] .skill-cluster {
+  opacity: 0.3;
+}
+
+.skill-field[data-dimmed] .skill-cluster[data-active] {
+  opacity: 1;
+}
+
+.skill-cluster:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 6px;
+}
+
+.skill-cluster-core {
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--cluster-accent) 24%, transparent) 0%,
+    transparent 68%
+  );
+  opacity: 0.5;
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+
+.skill-cluster[data-active] .skill-cluster-core {
+  opacity: 1;
+  transform: scale(1.07);
+}
+
+/* Sits in the hole phyllotaxis leaves at the centre of the ring.
+
+   It only fits because `--core-d` constrains it to the width of that hole and
+   the text is allowed to wrap: set on one line it runs straight out over the
+   marks, since "Evals & MLOps" is wider than its whole 4-mark cluster. The
+   text-shadow is insurance for the moment a drifting mark strays inward. */
+.skill-cluster-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--core-d, 100%);
+  transform: translate(-50%, -50%);
+  font-family: var(--font-stack-display);
+  /* Scales with the hole it sits in: a 3-mark cluster has a much smaller
+     middle than an 18-mark one, and a fixed size fits one or the other. */
+  font-size: clamp(8px, calc(var(--core-d, 60px) * 0.17), 10.5px);
+  line-height: 1.25;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: color-mix(in srgb, var(--cluster-accent) 45%, #ffffff);
+  text-shadow: 0 0 8px rgba(5, 6, 12, 0.95), 0 0 3px rgba(5, 6, 12, 1);
+  opacity: 0.7;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.skill-cluster[data-active] .skill-cluster-label {
+  opacity: 1;
+}
+
+/* The drift lives on the node and the hover scale on the glyph inside it —
+   an animation and a transition cannot share one `transform`. */
+/* `left`/`top` are a static 50% here rather than an inline `calc(50% + Npx)`,
+   and the per-node offset arrives as `--node-dx/dy` instead.
+
+   That is a hydration fix, not a style preference. The browser re-serializes
+   `calc()` when it parses a style attribute — rounding the float and folding
+   `+ -42.43px` into `- 42.43px` — so React compared its own
+   `calc(50% + -42.43349941316458px)` against the DOM's `calc(50% - 42.4335px)`
+   and reported a mismatch on every node. Custom property values are stored as
+   written, so routing the offset through one round-trips exactly. */
+.skill-node {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  --drift-scale: 1;
+  --drift-speed: 1;
+  transform: translate(calc(-50% + var(--node-dx)), calc(-50% + var(--node-dy)));
+  animation: skill-drift calc(var(--drift-dur) * var(--drift-speed)) ease-in-out
+    var(--drift-delay) infinite alternate;
+}
+
+.skill-node:hover {
+  z-index: 5;
+}
+
+.skill-node-glyph {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--mark);
+  filter: grayscale(1) brightness(1.45) opacity(0.78);
+  transition:
+    filter 0.3s ease,
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.skill-node-glyph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.skill-cluster[data-active] .skill-node-glyph {
+  filter: grayscale(0.35) brightness(1.1) opacity(1);
+}
+
+.skill-node:hover .skill-node-glyph {
+  filter: none;
+  transform: scale(1.35);
+}
+
+.skill-node-label {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(8, 10, 18, 0.92);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.skill-node:hover .skill-node-label {
+  opacity: 1;
+}
+
+/* min-height holds the section still while the concept list swaps length. */
+.skill-readout {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  max-width: 46rem;
+  min-height: 96px;
+  margin: 32px auto 0;
+  padding: 16px 22px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.skill-readout-label {
+  font-family: var(--font-stack-display);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.skill-readout-body {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+@keyframes skill-drift {
+  from {
+    transform: translate(
+      calc(-50% + var(--node-dx)),
+      calc(-50% + var(--node-dy))
+    );
+  }
+  to {
+    transform: translate(
+      calc(-50% + var(--node-dx) + var(--drift-dx) * var(--drift-scale)),
+      calc(-50% + var(--node-dy) + var(--drift-dy) * var(--drift-scale))
+    );
+  }
+}
+
+/* Reduce the motion rather than remove it: amplitude drops to a fifth and the
+   cycle stretches out, so the drift becomes almost imperceptible instead of
+   freezing.
+
+   Killing it outright is the obvious move and it is wrong here. Windows turns
+   this query on for anyone who switched off Accessibility -> Visual effects ->
+   Animation effects, which is why card-orbit.tsx ignores the query entirely —
+   honouring it left twelve cards sitting inert. Seventy-two frozen logos would
+   be the same failure. Scaling down satisfies what the query actually asks for
+   without either extreme. */
+@media (prefers-reduced-motion: reduce) {
+  .skill-node {
+    --drift-scale: 0.55;
+    --drift-speed: 1.7;
   }
 }
