@@ -130,10 +130,14 @@ export function HeroSection() {
     )
 }
 
+// Order matches the order the sections appear in `page.tsx`. It did not used
+// to: "About" sat second and pointed at `#about`, which was the decorative
+// PICK YOUR CLAN block rather than any About content. That section is now the
+// Skillset field, and the anchor went with it.
 const menuItems = [
     { name: 'Work', href: '#work' },
-    { name: 'About', href: '#about' },
     { name: 'Projects', href: '#projects' },
+    { name: 'Skillset', href: '#skills' },
     { name: 'Contact', href: '#contact' },
 ]
 
